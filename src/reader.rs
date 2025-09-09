@@ -100,6 +100,7 @@ where
 /// Reads the file to a grid (vec of vec) of chars
 pub fn read_grid<T: AsRef<Path> + Display>(path: T) -> Vec<Vec<char>> {
     contents(path)
+        .trim()
         .lines()
         .map(|l| l.chars().collect())
         .collect()
