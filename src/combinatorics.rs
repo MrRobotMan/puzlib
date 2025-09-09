@@ -1,6 +1,6 @@
 use std::{collections::HashSet, hash::Hash};
 
-/// Generate all permutations of array of items where items can repeat in the array.
+/// Generate all unique permutations of array of items where items can repeat in the array.
 pub fn permutations_with_duplicates<N: Eq + Hash + Clone>(items: &[N]) -> HashSet<Vec<N>> {
     let mut items = items.to_vec();
     let mut perms = HashSet::new();
