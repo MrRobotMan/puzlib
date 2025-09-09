@@ -5,28 +5,28 @@ use std::{
 };
 
 pub trait Graph {
+    type Node: Eq + Hash + Clone;
     fn height(&self) -> usize;
     fn width(&self) -> usize;
+    fn moves(&self, node: &Self::Node) -> Vec<Self::Node>;
+    fn is_done(&self, node: &Self::Node) -> bool;
 }
 
-pub trait Searcher<G: Graph>: Eq + Hash + Clone {
-    fn moves(&self, graph: &G) -> Vec<Self>
-    where
-        Self: Sized;
-    fn is_done(&self, graph: &G) -> bool;
+pub trait Weighted: Graph {
+    fn weight(&self, cur: &Self::Node, next: &Self::Node) -> usize;
 }
 
-pub fn dfs<S: Searcher<G>, G: Graph>(start: &S, graph: &G) -> Option<Vec<S>> {
+pub fn dfs<G: Graph>(start: &G::Node, graph: &G) -> Option<Vec<G::Node>> {
     let mut path = HashMap::new();
     let mut to_visit = vec![start.clone()];
     while let Some(node) = to_visit.pop() {
         if path.contains_key(&node) {
             continue;
         }
-        if node.is_done(graph) {
+        if graph.is_done(&node) {
             return Some(get_path(path, node, start));
         }
-        for next_move in node.moves(graph) {
+        for next_move in graph.moves(&node) {
             to_visit.push(next_move.clone());
             path.insert(next_move.clone(), node.clone());
         }
@@ -34,15 +34,15 @@ pub fn dfs<S: Searcher<G>, G: Graph>(start: &S, graph: &G) -> Option<Vec<S>> {
     None
 }
 
-pub fn bfs<S: Searcher<G>, G: Graph>(start: &S, graph: &G) -> Option<Vec<S>> {
+pub fn bfs<G: Graph>(start: &G::Node, graph: &G) -> Option<Vec<G::Node>> {
     let mut path = HashMap::new();
     let mut to_visit = VecDeque::new();
     to_visit.push_front(start.clone());
     while let Some(node) = to_visit.pop_front() {
-        if node.is_done(graph) {
+        if graph.is_done(&node) {
             return Some(get_path(path, node, start));
         }
-        for next_move in node.moves(graph) {
+        for next_move in graph.moves(&node) {
             if path.contains_key(&next_move) {
                 continue;
             }
@@ -72,13 +72,6 @@ impl<S: Hash + Ord> PartialOrd for MinHeapState<S> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
-}
-
-pub trait Weighted {
-    type Node: Eq + Hash + Clone;
-    fn weight(&self, cur: &Self::Node, next: &Self::Node) -> usize;
-    fn moves(&self, cur: &Self::Node) -> Vec<Self::Node>;
-    fn is_done(&self, node: &Self::Node) -> bool;
 }
 
 pub fn dijkstra<N: Hash + Ord + PartialOrd + Clone, G: Weighted<Node = N>>(
@@ -183,15 +176,8 @@ mod tests {
         target: usize,
     }
 
-    impl Weighted for Layout {
+    impl Graph for Layout {
         type Node = usize;
-        fn weight(&self, cur: &usize, next: &usize) -> usize {
-            self.nodes[*cur]
-                .iter()
-                .filter_map(|v| if v.0 == *next { Some(v.1) } else { None })
-                .next()
-                .unwrap()
-        }
 
         fn moves(&self, cur: &usize) -> Vec<usize> {
             self.nodes[*cur].iter().map(|v| v.0).collect()
@@ -199,6 +185,24 @@ mod tests {
 
         fn is_done(&self, node: &usize) -> bool {
             *node == self.target
+        }
+
+        fn height(&self) -> usize {
+            3
+        }
+
+        fn width(&self) -> usize {
+            4
+        }
+    }
+
+    impl Weighted for Layout {
+        fn weight(&self, cur: &usize, next: &usize) -> usize {
+            self.nodes[*cur]
+                .iter()
+                .filter_map(|v| if v.0 == *next { Some(v.1) } else { None })
+                .next()
+                .unwrap()
         }
     }
 }
