@@ -4,6 +4,7 @@ use std::{
     ops::{Add, AddAssign, Mul, Sub, SubAssign},
 };
 
+/// Directions for stepping
 #[derive(Debug)]
 pub struct Dir<T> {
     _phantom: PhantomData<T>,
@@ -71,12 +72,13 @@ where
     }
 }
 
+/// 2D Vector
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct Vec2D<T>(pub T, pub T);
 
 impl<T> Vec2D<T>
 where
-    T: Copy + Clone + Mul<Output = T> + Sub<Output = T> + Add<Output = T> + PartialOrd,
+    T: Copy + Clone + Mul<Output = T> + Sub<Output = T> + Add<Output = T> + PartialOrd + Default,
 {
     /// Scale by a factor
     pub fn scale(&mut self, factor: T) -> Self {
@@ -84,7 +86,7 @@ where
     }
 
     /// Get the Manhatten / taxi cab distance
-    pub fn manhatten(&self, other: &Self) -> T {
+    pub fn manhatten(&self, other: Self) -> T {
         let x = if self.0 > other.0 {
             self.0 - other.0
         } else {
@@ -96,6 +98,21 @@ where
             other.1 - self.1
         };
         x + y
+    }
+
+    /// Dot product (magnitude) of two vectors
+    pub fn dot(&self, other: Self) -> T {
+        self.0 * other.0 + self.1 * other.1
+    }
+
+    /// Convert to a 3D vector with normal axis set to 0.
+    /// 2D points will retain relative position to each other.
+    pub fn as_vec3d(&self, normal: Axis) -> Vec3D<T> {
+        match normal {
+            Axis::X => Vec3D(T::default(), self.0, self.1),
+            Axis::Y => Vec3D(self.0, T::default(), self.1),
+            Axis::Z => Vec3D(self.0, self.1, T::default()),
+        }
     }
 }
 
@@ -136,11 +153,12 @@ where
 
 impl<T: Copy> FromIterator<T> for Vec2D<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let mut v = vec![];
-        for i in iter {
-            v.push(i)
+        let mut iter = iter.into_iter();
+        let s = Self(iter.next().unwrap(), iter.next().unwrap());
+        if iter.next().is_some() {
+            panic!("Can only collect length 2 iterators into points.");
         }
-        Self(v[0], v[1])
+        s
     }
 }
 
@@ -196,6 +214,7 @@ impl<T: Display> Display for Vec2D<T> {
     }
 }
 
+/// 3D Vector
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct Vec3D<T>(pub T, pub T, pub T);
 
@@ -203,7 +222,7 @@ impl<T> Vec3D<T>
 where
     T: Copy + Clone + Mul<Output = T> + Sub<Output = T> + Add<Output = T> + PartialOrd,
 {
-    /// Return the point in the plane normal to the provided axis.
+    /// Return the vector projected into the plane normal to the provided axis.
     /// Normal X => (Y, Z),
     /// Normal Y => (X, Z),
     /// Normal Z => (X, Y)
@@ -215,13 +234,13 @@ where
         }
     }
 
-    /// Scales a point by some value
+    /// Scale a point by some value
     pub fn scale(&self, scale: T) -> Self {
         Self(self.0 * scale, self.1 * scale, self.2 * scale)
     }
 
     /// Get the Manhatten / taxi cab distance
-    pub fn manhatten(&self, other: &Self) -> T {
+    pub fn manhatten(&self, other: Self) -> T {
         let x = if self.0 > other.0 {
             self.0 - other.0
         } else {
@@ -239,11 +258,16 @@ where
         };
         x + y + z
     }
+
+    /// Dot product (magnitude) of two vectors
+    pub fn dot(&self, other: Self) -> T {
+        self.0 * other.0 + self.1 * other.1 + self.2 * other.2
+    }
 }
 
-impl<T: From<u8>> From<Vec2D<T>> for Vec3D<T> {
+impl<T: Default> From<Vec2D<T>> for Vec3D<T> {
     fn from(value: Vec2D<T>) -> Self {
-        Self(value.0, value.1, 0.into())
+        Self(value.0, value.1, T::default())
     }
 }
 
@@ -263,14 +287,20 @@ where
 
 impl<T: Copy> FromIterator<T> for Vec3D<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let v = iter.into_iter().collect::<Vec<_>>();
-        if v.len() != 3 {
+        let mut iter = iter.into_iter();
+        let s = Self(
+            iter.next().unwrap(),
+            iter.next().unwrap(),
+            iter.next().unwrap(),
+        );
+        if iter.next().is_some() {
             panic!("Can only collect length 3 iterators into points.");
         }
-        Self(v[0], v[1], v[2])
+        s
     }
 }
 
+/// Normal axes for Vec3D
 #[derive(Debug, Default)]
 pub enum Axis {
     X,
@@ -324,5 +354,82 @@ impl<T: Copy + SubAssign> SubAssign for Vec3D<T> {
         self.0 -= rhs.0;
         self.1 -= rhs.1;
         self.2 -= rhs.2;
+    }
+}
+
+pub trait Cross {
+    type Output;
+    /// Cross product of two vectors
+    fn cross(&self, other: Self) -> Self::Output;
+}
+
+macro_rules! cross_impl{
+    ($($t:ty) *) => ($(
+            impl Cross for Vec3D<$t> {
+                type Output = Self;
+                 fn cross(&self, other: Self) -> Self::Output {
+                    Self(
+                        self.1 * other.2 - self.2 * other.1,
+                        self.2 * other.0 - self.0 * other.2,
+                        self.0 * other.1 - self.1 * other.0,
+                    )
+                }
+            }
+            impl Cross for Vec2D<$t> {
+                type Output = Vec3D<$t>;
+                 fn cross(&self, other: Self) -> Self::Output {
+                        let v1: Vec3D<$t> = (*self).into();
+                        let v2 = other.into();
+                        v1.cross(v2)
+                }
+            }
+        )*)
+}
+
+cross_impl!(i8 i16 i32 i64 i128 isize f32 f64);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_manhatten_2d() {
+        let expected = 10;
+        let actual = Vec2D(-1, 6).manhatten(Vec2D(7, 8));
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_dot_2d() {
+        let expected = 66;
+        let actual = Vec2D(-6, 8).dot(Vec2D(5, 12));
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_cross_2d() {
+        let expected = Vec3D(0, 0, 2);
+        let actual = Vec2D(2, 2).cross(Vec2D(5, 6));
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_manhatten_3d() {
+        let expected = 10;
+        let actual = Vec3D(-1, 6, 5).manhatten(Vec3D(5, 8, 3));
+        assert_eq!(expected, actual);
+    }
+    #[test]
+    fn test_dot_3d() {
+        let expected = 602;
+        let actual = Vec3D(-6, 8, 12).dot(Vec3D(5, 13, 44));
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_cross_3d() {
+        let expected = Vec3D(-3.0, 6.0, -3.0);
+        let actual = Vec3D(2.0, 3.0, 4.0).cross(Vec3D(5.0, 6.0, 7.0));
+        assert_eq!(expected, actual);
     }
 }
