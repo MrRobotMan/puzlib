@@ -57,7 +57,6 @@ pub fn bfs<G: Graph>(start: &G::Node, graph: &G) -> Option<Vec<G::Node>> {
 struct MinHeapState<S: Hash + Ord + PartialOrd + Eq + PartialEq> {
     node: S,
     cost: usize,
-    path: Vec<S>,
 }
 
 impl<S: Hash + Ord> Ord for MinHeapState<S> {
@@ -78,45 +77,93 @@ impl<S: Hash + Ord> PartialOrd for MinHeapState<S> {
 pub fn dijkstra<N: Hash + Ord + PartialOrd + Clone, G: Weighted<Node = N>>(
     start: &N,
     graph: &G,
-) -> Option<HashMap<N, (usize, Vec<N>)>> {
+) -> Option<(HashMap<N, usize>, Vec<N>)> {
     let mut heap: BinaryHeap<MinHeapState<N>> = BinaryHeap::new();
-    let mut dist: HashMap<N, (usize, Vec<N>)> = HashMap::new();
+    let mut dist: HashMap<N, usize> = HashMap::new();
     let mut index: HashSet<N> = HashSet::new();
+    let mut path: HashMap<N, N> = HashMap::new();
 
     heap.push(MinHeapState {
         node: start.clone(),
         cost: 0,
-        path: vec![start.clone()],
     });
-    dist.insert(start.clone(), (0, vec![start.clone()]));
+    dist.insert(start.clone(), 0);
     index.insert(start.clone());
 
-    while let Some(MinHeapState { node, cost, path }) = heap.pop() {
+    while let Some(MinHeapState { node, cost }) = heap.pop() {
         // Reached our goal.
         if graph.is_done(&node) {
-            return Some(dist);
+            return Some((dist, get_path(path, node, start)));
         }
 
         // Already have a better path to node.
-        if cost > dist[&node].0 {
+        if cost > dist[&node] {
             continue;
         }
         for next_move in graph.moves(&node) {
-            let mut next_path = path.clone();
-            next_path.push(next_move.clone());
             let next_cost = cost + graph.weight(&node, &next_move);
             // Build the queue as we go instead of putting all nodes in at the start.
             if index.insert(next_move.clone()) {
-                dist.insert(next_move.clone(), (usize::MAX, next_path.clone()));
+                dist.insert(next_move.clone(), usize::MAX);
             }
-            if next_cost < dist[&next_move].0 {
+            if next_cost < dist[&next_move] {
                 heap.push(MinHeapState {
                     node: next_move.clone(),
                     cost: next_cost,
-                    path: next_path.clone(),
                 });
-                dist.entry(next_move)
-                    .and_modify(|v| *v = (next_cost, next_path));
+                dist.entry(next_move.clone()).and_modify(|v| *v = next_cost);
+                let cur = path.entry(next_move.clone()).or_insert(node.clone());
+                *cur = node.clone();
+            }
+        }
+    }
+
+    None
+}
+
+pub fn a_star<
+    N: Hash + Ord + PartialOrd + Clone + std::fmt::Debug,
+    G: Weighted<Node = N>,
+    F: Fn(&N) -> usize,
+>(
+    start: &N,
+    graph: &G,
+    hueristic: F,
+) -> Option<(HashMap<N, usize>, Vec<N>)> {
+    let mut heap: BinaryHeap<MinHeapState<N>> = BinaryHeap::new();
+    let mut path: HashMap<N, N> = HashMap::new();
+    let mut dist: HashMap<N, usize> = HashMap::new();
+    let mut index: HashSet<N> = HashSet::new();
+
+    heap.push(MinHeapState {
+        node: start.clone(),
+        cost: hueristic(start),
+    });
+    dist.insert(start.clone(), 0);
+    index.insert(start.clone());
+
+    while let Some(MinHeapState { node, .. }) = heap.pop() {
+        // Reached our goal.
+        if graph.is_done(&node) {
+            return Some((dist, get_path(path, node, start)));
+        }
+
+        for next_move in graph.moves(&node) {
+            // Build the queue as we go instead of putting all nodes in at the start.
+            if index.insert(next_move.clone()) {
+                dist.insert(next_move.clone(), usize::MAX);
+            }
+            let tentative_cost = dist[&node] + graph.weight(&node, &next_move);
+            if tentative_cost < dist[&next_move] {
+                let next_cost = tentative_cost + hueristic(&next_move);
+                heap.push(MinHeapState {
+                    node: next_move.clone(),
+                    cost: next_cost,
+                });
+                dist.entry(next_move.clone())
+                    .and_modify(|v| *v = tentative_cost);
+                let cur = path.entry(next_move.clone()).or_insert(node.clone());
+                *cur = node.clone();
             }
         }
     }
@@ -143,6 +190,8 @@ pub fn get_path<S: PartialEq + Eq + Hash + Clone>(
 
 #[cfg(test)]
 mod tests {
+    use crate::{Dir, Vec2D};
+
     use super::*;
 
     #[test]
@@ -166,16 +215,15 @@ mod tests {
         };
         assert_eq!(
             Some((7_usize, vec![3, 0])),
-            dijkstra(&start, &graph).map(|g| g[&graph.target].clone())
+            dijkstra(&start, &graph).map(|g| (g.0[&graph.target], g.1))
         );
         graph.target = 4;
         let start = 0;
         assert_eq!(
             Some((5_usize, vec![0, 1, 3, 4])),
-            dijkstra(&start, &graph).map(|g| g[&graph.target].clone())
+            dijkstra(&start, &graph).map(|g| (g.0[&graph.target], g.1))
         );
     }
-
     struct Layout {
         nodes: Vec<Vec<(usize, usize)>>,
         target: usize,
@@ -208,6 +256,106 @@ mod tests {
                 .filter_map(|v| if v.0 == *next { Some(v.1) } else { None })
                 .next()
                 .unwrap()
+        }
+    }
+
+    #[test]
+    fn test_a_star() {
+        // Testing the example from https://doc.rust-lang.org/stable/std/collections/binary_heap/index.html
+        let expected = 28;
+        let chamber: Chamber = r#"#######
+#6769##
+S50505E
+#97434#
+#######"#
+            .lines()
+            .collect::<Vec<_>>()
+            .into();
+        let res = a_star(&chamber.start[0], &chamber, |n| chamber.hueristic(n)).unwrap();
+        println!("{:?}", res.1);
+        let actual = res.0[&chamber.end];
+        assert_eq!(expected, actual);
+    }
+
+    #[derive(Debug, Default)]
+    struct Chamber {
+        chamber: HashMap<Vec2D<i64>, i64>,
+        start: Vec<Vec2D<i64>>,
+        end: Vec2D<i64>,
+        size: (usize, usize),
+    }
+    impl Chamber {
+        fn hueristic(&self, n: &Vec2D<i64>) -> usize {
+            self.end.manhatten(*n) as usize
+        }
+    }
+
+    impl Graph for Chamber {
+        type Node = Vec2D<i64>;
+
+        fn height(&self) -> usize {
+            self.size.0
+        }
+
+        fn width(&self) -> usize {
+            self.size.1
+        }
+
+        fn moves(&self, node: &Self::Node) -> Vec<Self::Node> {
+            Dir::<i64>::cardinals()
+                .iter()
+                .filter_map(|n| {
+                    if self.chamber.contains_key(&(node + n)) {
+                        Some(node + n)
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        }
+
+        fn is_done(&self, node: &Self::Node) -> bool {
+            node == &self.end
+        }
+    }
+    impl Weighted for Chamber {
+        fn weight(&self, cur: &Self::Node, next: &Self::Node) -> usize {
+            let a = self.chamber[cur];
+            let b = self.chamber[next];
+            let cost = (a - b).abs().min(10 - (b - a).abs()) + 1;
+            cost as usize
+        }
+    }
+
+    impl<S: AsRef<str>> From<Vec<S>> for Chamber {
+        fn from(value: Vec<S>) -> Self {
+            let mut chamber = Chamber {
+                size: (value.len(), value[0].as_ref().len()),
+                ..Default::default()
+            };
+            for (row, line) in value.into_iter().enumerate() {
+                for (col, ch) in line.as_ref().chars().enumerate() {
+                    let row = row as i64;
+                    let col = col as i64;
+                    match ch {
+                        'E' => {
+                            chamber.end = Vec2D(row, col);
+                            chamber.chamber.insert(Vec2D(row, col), 0);
+                        }
+                        'S' => {
+                            chamber.start.push(Vec2D(row, col));
+                            chamber.chamber.insert(Vec2D(row, col), 0);
+                        }
+                        x if x.is_ascii_digit() => {
+                            chamber
+                                .chamber
+                                .insert(Vec2D(row, col), (x as u8 - b'0') as i64);
+                        }
+                        _ => (),
+                    }
+                }
+            }
+            chamber
         }
     }
 }
