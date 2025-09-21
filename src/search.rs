@@ -57,6 +57,7 @@ pub fn bfs<G: Graph>(start: &G::Node, graph: &G) -> Option<Vec<G::Node>> {
 struct MinHeapState<S: Hash + Ord + PartialOrd + Eq + PartialEq> {
     node: S,
     cost: usize,
+    path: Vec<S>,
 }
 
 impl<S: Hash + Ord> Ord for MinHeapState<S> {
@@ -77,41 +78,45 @@ impl<S: Hash + Ord> PartialOrd for MinHeapState<S> {
 pub fn dijkstra<N: Hash + Ord + PartialOrd + Clone, G: Weighted<Node = N>>(
     start: &N,
     graph: &G,
-) -> Option<HashMap<N, usize>> {
+) -> Option<HashMap<N, (usize, Vec<N>)>> {
     let mut heap: BinaryHeap<MinHeapState<N>> = BinaryHeap::new();
-    let mut dist: HashMap<N, usize> = HashMap::new();
+    let mut dist: HashMap<N, (usize, Vec<N>)> = HashMap::new();
     let mut index: HashSet<N> = HashSet::new();
 
     heap.push(MinHeapState {
         node: start.clone(),
         cost: 0,
+        path: vec![start.clone()],
     });
-    dist.insert(start.clone(), 0);
+    dist.insert(start.clone(), (0, vec![start.clone()]));
     index.insert(start.clone());
 
-    while let Some(MinHeapState { node, cost }) = heap.pop() {
+    while let Some(MinHeapState { node, cost, path }) = heap.pop() {
         // Reached our goal.
         if graph.is_done(&node) {
             return Some(dist);
         }
 
         // Already have a better path to node.
-        if cost > dist[&node] {
+        if cost > dist[&node].0 {
             continue;
         }
-
         for next_move in graph.moves(&node) {
+            let mut next_path = path.clone();
+            next_path.push(next_move.clone());
             let next_cost = cost + graph.weight(&node, &next_move);
             // Build the queue as we go instead of putting all nodes in at the start.
             if index.insert(next_move.clone()) {
-                dist.insert(next_move.clone(), usize::MAX);
+                dist.insert(next_move.clone(), (usize::MAX, next_path.clone()));
             }
-            if next_cost < dist[&next_move] {
+            if next_cost < dist[&next_move].0 {
                 heap.push(MinHeapState {
                     node: next_move.clone(),
                     cost: next_cost,
+                    path: next_path.clone(),
                 });
-                dist.entry(next_move).and_modify(|v| *v = next_cost);
+                dist.entry(next_move)
+                    .and_modify(|v| *v = (next_cost, next_path));
             }
         }
     }
@@ -160,14 +165,14 @@ mod tests {
             target: 0,
         };
         assert_eq!(
-            Some(7_usize),
-            dijkstra(&start, &graph).map(|g| g[&graph.target])
+            Some((7_usize, vec![3, 0])),
+            dijkstra(&start, &graph).map(|g| g[&graph.target].clone())
         );
         graph.target = 4;
         let start = 0;
         assert_eq!(
-            Some(5_usize),
-            dijkstra(&start, &graph).map(|g| g[&graph.target])
+            Some((5_usize, vec![0, 1, 3, 4])),
+            dijkstra(&start, &graph).map(|g| g[&graph.target].clone())
         );
     }
 
