@@ -85,6 +85,11 @@ pub fn read_line<T: AsRef<Path> + Display>(path: T) -> Vec<char> {
     contents(path).chars().filter(|&chr| chr != '\n').collect()
 }
 
+/// Reads a single line file to a list breaking on a separator.
+pub fn read_line_sep<T: AsRef<Path> + Display>(path: T, sep: &str) -> Vec<String> {
+    contents(path).trim().split(sep).map(|s| s.into()).collect()
+}
+
 /// Reads the file to a list of chars.
 pub fn read_line_record<T: AsRef<Path> + Display, U: FromStr>(path: T) -> Vec<U>
 where
