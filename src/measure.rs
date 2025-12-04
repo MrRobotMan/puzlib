@@ -12,63 +12,76 @@ pub struct Dir<T> {
 
 impl<T> Dir<T>
 where
-    T: Copy + From<i8> + Debug,
+    T: Debug + Copy + From<u8> + Sized + CheckedAdd + CheckedSub,
 {
     /// Cardinal directions (N, E, S, W)
     /// ```
     /// use puzlib::{Vec2D, Dir};
-    /// let cardinals = Dir::<i64>::cardinals();
-    /// assert_eq!([Vec2D(-1, 0), Vec2D(0, 1), Vec2D(1, 0), Vec2D(0, -1)], cardinals);
+    /// let cardinals = Dir::<i64>::cardinals(&Vec2D(0,0));
+    /// assert_eq!([Some(Vec2D(-1, 0)), Some(Vec2D(0, 1)), Some(Vec2D(1, 0)), Some(Vec2D(0, -1))], cardinals);
     /// ```
-    pub fn cardinals() -> [Vec2D<T>; 4] {
-        let one = 1_i8.into();
-        let zero = 0.into();
-        let minus_one = (-1).into();
-        [
-            Vec2D(minus_one, zero),
-            Vec2D(zero, one),
-            Vec2D(one, zero),
-            Vec2D(zero, minus_one),
-        ]
+    pub fn cardinals(from: &Vec2D<T>) -> [Option<Vec2D<T>>; 4] {
+        let one = 1_u8.into();
+        let up = from.0.checked_sub(&one).map(|n| Vec2D(n, from.1));
+        let right = from.1.checked_add(&one).map(|n| Vec2D(from.0, n));
+        let down = from.0.checked_add(&one).map(|n| Vec2D(n, from.1));
+        let left = from.1.checked_sub(&one).map(|n| Vec2D(from.0, n));
+        [up, right, down, left]
     }
 
     /// Ordinal directions (NE, SE, SW, NW)
     /// ```
     /// use puzlib::{Vec2D, Dir};
-    /// let ordinals = Dir::<i64>::ordinals();
-    /// assert_eq!([Vec2D(-1, 1), Vec2D(1, 1), Vec2D(1, -1), Vec2D(-1, -1)], ordinals);
+    /// let ordinals = Dir::<i64>::ordinals(&Vec2D(0,0));
+    /// assert_eq!([Some(Vec2D(-1, 1)), Some(Vec2D(1, 1)), Some(Vec2D(1, -1)), Some(Vec2D(-1, -1))], ordinals);
     /// ```
-    pub fn ordinals() -> [Vec2D<T>; 4] {
-        let one = 1_i8.into();
-        let minus_one = (-1).into();
-        [
-            Vec2D(minus_one, one),
-            Vec2D(one, one),
-            Vec2D(one, minus_one),
-            Vec2D(minus_one, minus_one),
-        ]
+    pub fn ordinals(from: &Vec2D<T>) -> [Option<Vec2D<T>>; 4] {
+        let one = 1_u8.into();
+        let a = from.1.checked_sub(&one);
+        let b = from.1.checked_add(&one);
+        let c = from.0.checked_add(&one);
+        let d = from.0.checked_sub(&one);
+        let up_right = if let Some(n1) = a
+            && let Some(n2) = c
+        {
+            Some(Vec2D(n1, n2))
+        } else {
+            None
+        };
+        let down_right = if let Some(n1) = b
+            && let Some(n2) = c
+        {
+            Some(Vec2D(n1, n2))
+        } else {
+            None
+        };
+        let down_left = if let Some(n1) = b
+            && let Some(n2) = d
+        {
+            Some(Vec2D(n1, n2))
+        } else {
+            None
+        };
+        let up_left = if let Some(n1) = a
+            && let Some(n2) = d
+        {
+            Some(Vec2D(n1, n2))
+        } else {
+            None
+        };
+        [up_right, down_right, down_left, up_left]
     }
 
     /// Compass directions (N, NE, E, SE, S, SW, W, NW)
     /// ```
     /// use puzlib::{Vec2D, Dir};
-    /// let compass = Dir::<i64>::compass();
-    /// assert_eq!([Vec2D(-1, 0),Vec2D(-1, 1),Vec2D(0, 1),Vec2D(1, 1),Vec2D(1, 0),Vec2D(1, -1),Vec2D(0, -1),Vec2D(-1, -1)], compass);
+    /// let compass = Dir::<i64>::compass(&Vec2D(0,0));
+    /// assert_eq!([Some(Vec2D(-1, 0)),Some(Vec2D(-1, 1)),Some(Vec2D(0, 1)),Some(Vec2D(1, 1)),Some(Vec2D(1, 0)),Some(Vec2D(1, -1)),Some(Vec2D(0, -1)),Some(Vec2D(-1, -1))], compass);
     /// ```
-    pub fn compass() -> [Vec2D<T>; 8] {
-        let one = 1.into();
-        let zero = 0.into();
-        let minus_one = (-1).into();
-        [
-            Vec2D(minus_one, zero),
-            Vec2D(minus_one, one),
-            Vec2D(zero, one),
-            Vec2D(one, one),
-            Vec2D(one, zero),
-            Vec2D(one, minus_one),
-            Vec2D(zero, minus_one),
-            Vec2D(minus_one, minus_one),
-        ]
+    pub fn compass(from: &Vec2D<T>) -> [Option<Vec2D<T>>; 8] {
+        let c = Self::cardinals(from);
+        let o = Self::ordinals(from);
+        [c[0], o[0], c[1], o[1], c[2], o[2], c[3], o[3]]
     }
 }
 
@@ -85,8 +98,8 @@ where
         Self(self.0 * factor, self.1 * factor)
     }
 
-    /// Get the Manhatten / taxi cab distance
-    pub fn manhatten(&self, other: Self) -> T {
+    /// Get the Manhattan / taxi cab distance
+    pub fn manhattan(&self, other: Self) -> T {
         let x = if self.0 > other.0 {
             self.0 - other.0
         } else {
@@ -239,8 +252,8 @@ where
         Self(self.0 * scale, self.1 * scale, self.2 * scale)
     }
 
-    /// Get the Manhatten / taxi cab distance
-    pub fn manhatten(&self, other: Self) -> T {
+    /// Get the Manhattan / taxi cab distance
+    pub fn manhattan(&self, other: Self) -> T {
         let x = if self.0 > other.0 {
             self.0 - other.0
         } else {
@@ -388,14 +401,66 @@ macro_rules! cross_impl{
 
 cross_impl!(i8 i16 i32 i64 i128 isize f32 f64);
 
+macro_rules! checked_impl {
+    ($trait_name:ident, $method:ident, $t:ty) => {
+        impl $trait_name for $t {
+            #[inline]
+            fn $method(&self, v: &$t) -> Option<$t> {
+                <$t>::$method(*self, *v)
+            }
+        }
+    };
+}
+
+pub trait CheckedAdd: Sized + Add<Self, Output = Self> {
+    /// Adds two numbers, checking for overflow. If overflow happens, `None` is
+    /// returned.
+    fn checked_add(&self, v: &Self) -> Option<Self>;
+}
+
+checked_impl!(CheckedAdd, checked_add, u8);
+checked_impl!(CheckedAdd, checked_add, u16);
+checked_impl!(CheckedAdd, checked_add, u32);
+checked_impl!(CheckedAdd, checked_add, u64);
+checked_impl!(CheckedAdd, checked_add, usize);
+checked_impl!(CheckedAdd, checked_add, u128);
+
+checked_impl!(CheckedAdd, checked_add, i8);
+checked_impl!(CheckedAdd, checked_add, i16);
+checked_impl!(CheckedAdd, checked_add, i32);
+checked_impl!(CheckedAdd, checked_add, i64);
+checked_impl!(CheckedAdd, checked_add, isize);
+checked_impl!(CheckedAdd, checked_add, i128);
+
+/// Performs subtraction that returns `None` instead of wrapping around on underflow.
+pub trait CheckedSub: Sized + Sub<Self, Output = Self> {
+    /// Subtracts two numbers, checking for underflow. If underflow happens,
+    /// `None` is returned.
+    fn checked_sub(&self, v: &Self) -> Option<Self>;
+}
+
+checked_impl!(CheckedSub, checked_sub, u8);
+checked_impl!(CheckedSub, checked_sub, u16);
+checked_impl!(CheckedSub, checked_sub, u32);
+checked_impl!(CheckedSub, checked_sub, u64);
+checked_impl!(CheckedSub, checked_sub, usize);
+checked_impl!(CheckedSub, checked_sub, u128);
+
+checked_impl!(CheckedSub, checked_sub, i8);
+checked_impl!(CheckedSub, checked_sub, i16);
+checked_impl!(CheckedSub, checked_sub, i32);
+checked_impl!(CheckedSub, checked_sub, i64);
+checked_impl!(CheckedSub, checked_sub, isize);
+checked_impl!(CheckedSub, checked_sub, i128);
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_manhatten_2d() {
+    fn test_manhattan_2d() {
         let expected = 10;
-        let actual = Vec2D(-1, 6).manhatten(Vec2D(7, 8));
+        let actual = Vec2D(-1, 6).manhattan(Vec2D(7, 8));
         assert_eq!(expected, actual);
     }
 
@@ -414,9 +479,9 @@ mod tests {
     }
 
     #[test]
-    fn test_manhatten_3d() {
+    fn test_manhattan_3d() {
         let expected = 10;
-        let actual = Vec3D(-1, 6, 5).manhatten(Vec3D(5, 8, 3));
+        let actual = Vec3D(-1, 6, 5).manhattan(Vec3D(5, 8, 3));
         assert_eq!(expected, actual);
     }
     #[test]
@@ -430,6 +495,18 @@ mod tests {
     fn test_cross_3d() {
         let expected = Vec3D(-3.0, 6.0, -3.0);
         let actual = Vec3D(2.0, 3.0, 4.0).cross(Vec3D(5.0, 6.0, 7.0));
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_cardinals() {
+        let expected = [
+            Some(Vec2D(1, 0)),
+            Some(Vec2D(2, 1)),
+            Some(Vec2D(3, 0)),
+            None,
+        ];
+        let actual = Dir::<usize>::cardinals(&Vec2D(2, 0));
         assert_eq!(expected, actual);
     }
 }

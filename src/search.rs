@@ -128,7 +128,7 @@ pub fn a_star<
 >(
     start: &N,
     graph: &G,
-    hueristic: F,
+    heuristic: F,
 ) -> Option<(HashMap<N, usize>, Vec<N>)> {
     let mut heap: BinaryHeap<MinHeapState<N>> = BinaryHeap::new();
     let mut path: HashMap<N, N> = HashMap::new();
@@ -137,7 +137,7 @@ pub fn a_star<
 
     heap.push(MinHeapState {
         node: start.clone(),
-        cost: hueristic(start),
+        cost: heuristic(start),
     });
     dist.insert(start.clone(), 0);
     index.insert(start.clone());
@@ -155,7 +155,7 @@ pub fn a_star<
             }
             let tentative_cost = dist[&node] + graph.weight(&node, &next_move);
             if tentative_cost < dist[&next_move] {
-                let next_cost = tentative_cost + hueristic(&next_move);
+                let next_cost = tentative_cost + heuristic(&next_move);
                 heap.push(MinHeapState {
                     node: next_move.clone(),
                     cost: next_cost,
@@ -261,7 +261,6 @@ mod tests {
 
     #[test]
     fn test_a_star() {
-        // Testing the example from https://doc.rust-lang.org/stable/std/collections/binary_heap/index.html
         let expected = 28;
         let chamber: Chamber = r#"#######
 #6769##
@@ -271,7 +270,7 @@ S50505E
             .lines()
             .collect::<Vec<_>>()
             .into();
-        let res = a_star(&chamber.start[0], &chamber, |n| chamber.hueristic(n)).unwrap();
+        let res = a_star(&chamber.start[0], &chamber, |n| chamber.heuristic(n)).unwrap();
         println!("{:?}", res.1);
         let actual = res.0[&chamber.end];
         assert_eq!(expected, actual);
@@ -285,8 +284,8 @@ S50505E
         size: (usize, usize),
     }
     impl Chamber {
-        fn hueristic(&self, n: &Vec2D<i64>) -> usize {
-            self.end.manhatten(*n) as usize
+        fn heuristic(&self, n: &Vec2D<i64>) -> usize {
+            self.end.manhattan(*n) as usize
         }
     }
 
@@ -302,11 +301,13 @@ S50505E
         }
 
         fn moves(&self, node: &Self::Node) -> Vec<Self::Node> {
-            Dir::<i64>::cardinals()
+            Dir::<i64>::cardinals(node)
                 .iter()
                 .filter_map(|n| {
-                    if self.chamber.contains_key(&(node + n)) {
-                        Some(node + n)
+                    if let Some(a) = n
+                        && self.chamber.contains_key(a)
+                    {
+                        Some(*a)
                     } else {
                         None
                     }
