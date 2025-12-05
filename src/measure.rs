@@ -37,33 +37,33 @@ where
     /// ```
     pub fn ordinals(from: &Vec2D<T>) -> [Option<Vec2D<T>>; 4] {
         let one = 1_u8.into();
-        let a = from.1.checked_sub(&one);
-        let b = from.1.checked_add(&one);
-        let c = from.0.checked_add(&one);
-        let d = from.0.checked_sub(&one);
-        let up_right = if let Some(n1) = a
-            && let Some(n2) = c
+        let up = from.0.checked_sub(&one);
+        let down = from.0.checked_add(&one);
+        let right = from.1.checked_add(&one);
+        let left = from.1.checked_sub(&one);
+        let up_right = if let Some(n1) = up
+            && let Some(n2) = right
         {
             Some(Vec2D(n1, n2))
         } else {
             None
         };
-        let down_right = if let Some(n1) = b
-            && let Some(n2) = c
+        let down_right = if let Some(n1) = down
+            && let Some(n2) = right
         {
             Some(Vec2D(n1, n2))
         } else {
             None
         };
-        let down_left = if let Some(n1) = b
-            && let Some(n2) = d
+        let down_left = if let Some(n1) = down
+            && let Some(n2) = left
         {
             Some(Vec2D(n1, n2))
         } else {
             None
         };
-        let up_left = if let Some(n1) = a
-            && let Some(n2) = d
+        let up_left = if let Some(n1) = up
+            && let Some(n2) = left
         {
             Some(Vec2D(n1, n2))
         } else {
