@@ -42,6 +42,18 @@ where
     pub fn dot(&self, other: Self) -> T {
         self.0 * other.0 + self.1 * other.1 + self.2 * other.2
     }
+
+    /// Map the vector to another vector with a different interior type based on a closure
+    pub fn map<U>(&self, mut f: impl FnMut(T) -> U) -> Vec3D<U> {
+        let Self(x, y, z) = *self;
+        Vec3D(f(x), f(y), f(z))
+    }
+
+    /// Map the vector to another vector with a different interior type based on a closure
+    pub fn map_into<U: From<T>>(&self) -> Vec3D<U> {
+        let Self(x, y, z) = *self;
+        Vec3D(x.into(), y.into(), z.into())
+    }
 }
 impl<T> Vec3D<T>
 where

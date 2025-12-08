@@ -38,6 +38,18 @@ where
             Axis::Z => Vec3D(self.0, self.1, T::default()),
         }
     }
+
+    /// Map the vector to another vector with a different interior type based on a closure
+    pub fn map<U>(&self, mut f: impl FnMut(T) -> U) -> Vec2D<U> {
+        let Self(x, y) = *self;
+        Vec2D(f(x), f(y))
+    }
+
+    /// Map the vector to another vector with a different interior type based on a closure
+    pub fn map_into<U: From<T>>(&self) -> Vec2D<U> {
+        let Self(x, y) = *self;
+        Vec2D(x.into(), y.into())
+    }
 }
 
 impl<T> Vec2D<T>
