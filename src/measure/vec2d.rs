@@ -11,7 +11,7 @@ pub struct Vec2D<T>(pub T, pub T);
 
 impl<T> Vec2D<T>
 where
-    T: Copy + Clone + Mul<Output = T> + Sub<Output = T> + Add<Output = T> + PartialOrd + Default,
+    T: Copy + Clone + Mul<Output = T> + Sub<Output = T> + Add<Output = T> + Ord + Default,
 {
     /// Scale by a factor
     pub fn scale(&mut self, factor: T) -> Self {
@@ -20,19 +20,10 @@ where
 
     /// Get the Manhattan / taxi cab distance
     pub fn manhattan(&self, other: Self) -> T {
-        let x = if self.0 > other.0 {
-            self.0 - other.0
-        } else {
-            other.0 - self.0
-        };
-        let y = if self.1 > other.1 {
-            self.1 - other.1
-        } else {
-            other.1 - self.1
-        };
+        let x = self.0.max(other.0) - self.0.min(other.0);
+        let y = self.1.max(other.1) - self.1.min(other.1);
         x + y
     }
-
     /// Dot product (magnitude) of two vectors
     pub fn dot(&self, other: Self) -> T {
         self.0 * other.0 + self.1 * other.1
@@ -49,10 +40,19 @@ where
     }
 }
 
-impl<T, U> From<(U, U)> for Vec2D<T>
+impl<T> Vec2D<T>
 where
-    T: From<U>,
+    T: Ord + Into<f64> + Sub<Output = T> + Copy,
 {
+    /// Get the distance as the arrow flies to another Vec2D
+    pub fn distance_to(&self, other: Self) -> f64 {
+        let a: f64 = (self.0.max(other.0) - self.0.min(other.0)).into();
+        let b: f64 = (self.1.max(other.1) - self.1.min(other.1)).into();
+        (a.powi(2) + b.powi(2)).sqrt()
+    }
+}
+
+impl<T: From<U>, U> From<(U, U)> for Vec2D<T> {
     /// Convert from a tuple to Vec2D
     /// ```
     /// let conv: puzlib::Vec2D<i64> = (10_u8, 2).into();
@@ -163,5 +163,12 @@ mod tests {
         let expected = 66;
         let actual = Vec2D(-6, 8).dot(Vec2D(5, 12));
         assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_distance_2d() {
+        let expected = 5.0;
+        let actual = Vec2D(2, 9).distance_to(Vec2D(3, 5));
+        assert!(actual - expected < 1e-6)
     }
 }

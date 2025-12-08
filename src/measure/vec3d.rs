@@ -11,7 +11,7 @@ pub struct Vec3D<T>(pub T, pub T, pub T);
 
 impl<T> Vec3D<T>
 where
-    T: Copy + Clone + Mul<Output = T> + Sub<Output = T> + Add<Output = T> + PartialOrd,
+    T: Copy + Clone + Mul<Output = T> + Sub<Output = T> + Add<Output = T> + Ord,
 {
     /// Return the vector projected into the plane normal to the provided axis.
     /// Normal X => (Y, Z),
@@ -32,21 +32,9 @@ where
 
     /// Get the Manhattan / taxi cab distance
     pub fn manhattan(&self, other: Self) -> T {
-        let x = if self.0 > other.0 {
-            self.0 - other.0
-        } else {
-            other.0 - self.0
-        };
-        let y = if self.1 > other.1 {
-            self.1 - other.1
-        } else {
-            other.1 - self.1
-        };
-        let z = if self.2 > other.2 {
-            self.2 - other.2
-        } else {
-            other.2 - self.2
-        };
+        let x = self.0.max(other.0) - self.0.min(other.0);
+        let y = self.1.max(other.1) - self.1.min(other.1);
+        let z = self.2.max(other.2) - self.2.min(other.2);
         x + y + z
     }
 
@@ -55,7 +43,18 @@ where
         self.0 * other.0 + self.1 * other.1 + self.2 * other.2
     }
 }
-
+impl<T> Vec3D<T>
+where
+    T: Into<f64> + Copy + Sub<Output = T> + Ord,
+{
+    /// Get the distance as the arrow flies to another Vec3D
+    pub fn distance_to(&self, other: Self) -> f64 {
+        let x: f64 = (self.0.max(other.0) - self.0.min(other.0)).into();
+        let y: f64 = (self.1.max(other.1) - self.1.min(other.1)).into();
+        let z: f64 = (self.2.max(other.2) - self.2.min(other.2)).into();
+        (x.powi(2) + y.powi(2) + z.powi(2)).sqrt()
+    }
+}
 impl<T: Default> From<Vec2D<T>> for Vec3D<T> {
     fn from(value: Vec2D<T>) -> Self {
         Self(value.0, value.1, T::default())
@@ -159,5 +158,12 @@ mod tests {
         let expected = 602;
         let actual = Vec3D(-6, 8, 12).dot(Vec3D(5, 13, 44));
         assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_distance_3d() {
+        let expected = (525.0_f64).sqrt();
+        let actual = Vec3D(2, 9, -5).distance_to(Vec3D(-3, 5, 17));
+        assert!(actual - expected < 1e-6)
     }
 }
