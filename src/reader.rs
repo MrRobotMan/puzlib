@@ -61,7 +61,10 @@ where
 {
     read_lines(path)
         .iter()
-        .map(|l| l.parse::<U>().expect("Could not parse number {l:?}"))
+        .map(|l| {
+            let e = format!("Could not parse number {l:?}");
+            l.parse::<U>().expect(&e)
+        })
         .collect()
 }
 
@@ -74,7 +77,10 @@ where
         .iter()
         .map(|l| {
             l.split(sep)
-                .map(|l| l.parse::<U>().expect("Could not parse number {l:?}"))
+                .map(|l| {
+                    let e = format!("Could not parse number {l:?}");
+                    l.parse::<U>().expect(&e)
+                })
                 .collect()
         })
         .collect()
@@ -98,7 +104,10 @@ where
     contents(path)
         .trim()
         .split(",")
-        .map(|v| v.parse().expect("Could not parse number {v:?}"))
+        .map(|v| {
+            let e = format!("Could not parse number {v:?}");
+            v.parse().expect(&e)
+        })
         .collect()
 }
 
