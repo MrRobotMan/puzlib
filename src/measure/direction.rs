@@ -13,6 +13,9 @@ where
     T: Debug + Copy + From<u8> + Sized + CheckedAdd + CheckedSub,
 {
     /// Cardinal directions (N, E, S, W)
+    ///
+    /// Get orthogonal neighbors to the current node. Neighbor is
+    /// `None` if overflow or underflow would occur.
     /// ```
     /// use puzlib::{Vec2D, Dir};
     /// let cardinals = Dir::<i64>::cardinals(&Vec2D(0,0));
@@ -28,6 +31,9 @@ where
     }
 
     /// Ordinal directions (NE, SE, SW, NW)
+    ///
+    /// Get diagonal neighbors to the current node. Neighbor is
+    /// `None` if overflow or underflow would occur.
     /// ```
     /// use puzlib::{Vec2D, Dir};
     /// let ordinals = Dir::<i64>::ordinals(&Vec2D(0,0));
@@ -71,6 +77,9 @@ where
     }
 
     /// Compass directions (N, NE, E, SE, S, SW, W, NW)
+    ///
+    /// Get all 8 neighbors to the current node. Neighbor is
+    /// `None` if overflow or underflow would occur.
     /// ```
     /// use puzlib::{Vec2D, Dir};
     /// let compass = Dir::<i64>::compass(&Vec2D(0,0));
@@ -80,6 +89,45 @@ where
         let c = Self::cardinals(from);
         let o = Self::ordinals(from);
         [c[0], o[0], c[1], o[1], c[2], o[2], c[3], o[3]]
+    }
+
+    /// Cardinal directions (N, E, S, W)
+    ///
+    /// Get the nodes in orthogonal directions without
+    /// checking that the coordinates are valid.
+    pub fn cardinals_unchecked(from: &Vec2D<T>) -> [Vec2D<T>; 4] {
+        Self::cardinals(from)
+            .iter()
+            .map(|n| n.unwrap())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap()
+    }
+
+    /// Compass directions (NE, SE, SW,NW)
+    ///
+    /// Get the nodes in diagonal directions without
+    /// checking that the coordinates are valid.
+    pub fn ordinals_unchecked(from: &Vec2D<T>) -> [Vec2D<T>; 4] {
+        Self::ordinals(from)
+            .iter()
+            .map(|n| n.unwrap())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap()
+    }
+
+    /// Compass directions (N, NE, E, SE, S, SW, W, NW)
+    ///
+    /// Get the nodes in all 8 surrounding directions without
+    /// checking that the coordinates are valid.
+    pub fn compass_unchecked(from: &Vec2D<T>) -> [Vec2D<T>; 8] {
+        Self::compass(from)
+            .iter()
+            .map(|n| n.unwrap())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap()
     }
 }
 #[cfg(test)]
@@ -94,6 +142,22 @@ mod tests {
             None,
         ];
         let actual = Dir::<usize>::cardinals(&Vec2D(2, 0));
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_compass_unchecked() {
+        let expected: [Vec2D<i64>; 8] = [
+            (-1, 0).into(),
+            (-1, 1).into(),
+            (0, 1).into(),
+            (1, 1).into(),
+            (1, 0).into(),
+            (1, -1).into(),
+            (0, -1).into(),
+            (-1, -1).into(),
+        ];
+        let actual = Dir::<i64>::compass_unchecked(&Vec2D(0, 0));
         assert_eq!(expected, actual);
     }
 }
