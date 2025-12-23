@@ -87,6 +87,13 @@ where
     }
 }
 
+impl<T: Copy + Clone> From<&(T, T, T)> for Vec3D<T> {
+    /// Convert from reference tuple to Vec2D.
+    fn from(value: &(T, T, T)) -> Self {
+        Self(value.0, value.1, value.2)
+    }
+}
+
 impl<T: Copy> FromIterator<T> for Vec3D<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut iter = iter.into_iter();

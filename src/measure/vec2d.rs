@@ -65,13 +65,20 @@ where
 }
 
 impl<T: From<U>, U> From<(U, U)> for Vec2D<T> {
-    /// Convert from a tuple to Vec2D
+    /// Convert from a tuple to Vec2D while changing numeric types
     /// ```
     /// let conv: puzlib::Vec2D<i64> = (10_u8, 2).into();
     /// assert_eq!(conv, puzlib::Vec2D(10_i64, 2));
     /// ```
     fn from(value: (U, U)) -> Self {
         Self(value.0.into(), value.1.into())
+    }
+}
+
+impl<T: Copy + Clone> From<&(T, T)> for Vec2D<T> {
+    /// Convert from reference tuple to Vec2D.
+    fn from(value: &(T, T)) -> Self {
+        Self(value.0, value.1)
     }
 }
 
