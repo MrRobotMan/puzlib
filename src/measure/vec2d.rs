@@ -40,7 +40,7 @@ where
     }
 
     /// Map the vector to another vector with a different interior type based on a closure
-    pub fn map<U>(&self, mut f: impl FnMut(T) -> U) -> Vec2D<U> {
+    pub fn map<U>(&self, f: impl Fn(T) -> U) -> Vec2D<U> {
         let Self(x, y) = *self;
         Vec2D(f(x), f(y))
     }

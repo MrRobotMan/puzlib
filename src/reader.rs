@@ -1,9 +1,116 @@
 use std::{
     fmt::{Debug, Display},
     fs::read_to_string,
-    path::Path,
+    path::{Path, PathBuf},
     str::FromStr,
 };
+
+/// Read the input file to various collectioins. Input can be a string or a path.
+pub struct FileReader {
+    contents: String,
+}
+
+impl FileReader {
+    pub fn new<S: AsRef<str>>(contents: S) -> Self {
+        Self {
+            contents: contents.as_ref().into(),
+        }
+    }
+
+    /// Raw file contents.
+    pub fn contents(&self) -> &str {
+        &self.contents
+    }
+
+    /// Iterator of the non-blank lines in the file
+    pub fn lines(&self) -> impl Iterator<Item = &str> {
+        self.contents.lines().filter(|s| !s.is_empty())
+    }
+
+    /// Convert the contents to an iterator or chars, ignoring new-line characters.
+    pub fn chars(&self) -> impl Iterator<Item = char> {
+        self.contents.chars().filter(|c| c != &'\n')
+    }
+
+    /// Read the contents as a single line separated by a predicate.
+    pub fn line_sep<'a, S: AsRef<str>>(&'a self, sep: &'a S) -> impl Iterator<Item = &'a str> {
+        self.contents.trim().split(sep.as_ref())
+    }
+
+    /// Read chucks of blank-line separated records where each line is converted to type N.
+    /// For example:
+    /// ```
+    /// let actual = puzlib::FileReader::new("1234\n4567\n\n3423\n3543\n").records::<usize>().collect::<Vec<_>>();
+    /// let expected = vec![vec![1234, 4567], vec![3423, 3543]];
+    /// ```
+    pub fn records<N: FromStr + Display>(&self) -> impl Iterator<Item = Vec<N>>
+    where
+        <N as FromStr>::Err: Debug,
+    {
+        self.contents
+            .split("\n\n")
+            .filter(|s| !s.is_empty())
+            .map(|s| {
+                s.lines()
+                    .filter(|s| !s.is_empty())
+                    .map(|n| n.parse::<N>().unwrap())
+                    .collect::<Vec<N>>()
+            })
+    }
+
+    /// Read the grid to pairs of row/col coordinates and char ignoring anything specified.
+    pub fn read_grid<T, R: Copy + Fn((usize, usize)) -> T>(
+        &self,
+        ignores: &[char],
+        return_type: R,
+    ) -> impl Iterator<Item = (T, char)> {
+        self.contents
+            .lines()
+            .enumerate()
+            .flat_map(move |(row, line)| {
+                line.chars().enumerate().filter_map(move |(col, ch)| {
+                    if ignores.contains(&ch) {
+                        None
+                    } else {
+                        Some((return_type((row, col)), ch))
+                    }
+                })
+            })
+    }
+
+    /// Read the grid to pairs of row/col coordinates and type N ignoring anything specified.
+    pub fn read_grid_convert<N, C: Copy + Fn(char) -> N, T, R: Copy + Fn((usize, usize)) -> T>(
+        &self,
+        ignores: &[char],
+        return_type: R,
+        convert: C,
+    ) -> impl Iterator<Item = (T, N)> {
+        self.contents
+            .lines()
+            .enumerate()
+            .flat_map(move |(row, line)| {
+                line.chars().enumerate().filter_map(move |(col, ch)| {
+                    if ignores.contains(&ch) {
+                        None
+                    } else {
+                        Some((return_type((row, col)), convert(ch)))
+                    }
+                })
+            })
+    }
+}
+
+impl FromStr for FileReader {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let p = PathBuf::from(s);
+        let Ok(contents) = read_to_string(p) else {
+            return Err("Could not open file.".into());
+        };
+        Ok(Self { contents })
+    }
+}
 
 /// Gather a string of text or file name to a string
 pub fn contents<T: AsRef<Path> + Display>(path: T) -> String {
@@ -167,4 +274,32 @@ pub fn read_grid_records<T: AsRef<Path> + Display>(path: T) -> Vec<Vec<Vec<char>
         .split("\n\n")
         .map(|l| l.lines().map(|r| r.chars().collect()).collect())
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_() {
+        use crate::measure::Vec2D;
+        let reader = FileReader::new("1.2\n34.");
+        let expected = vec![
+            (Vec2D(0, 0), 1),
+            (Vec2D(0, 2), 2),
+            (Vec2D(1, 0), 3),
+            (Vec2D(1, 1), 4),
+        ];
+        let actual = reader
+            .read_grid_convert(
+                &['.'],
+                |r| {
+                    let a: Vec2D<usize> = r.into();
+                    a.map(|u| u as i64)
+                },
+                |c| c as u8 - b'0',
+            )
+            .collect::<Vec<_>>();
+        assert_eq!(expected, actual);
+    }
 }
