@@ -11,9 +11,14 @@ pub struct FileReader {
 }
 
 impl FileReader {
-    pub fn new<S: AsRef<str>>(contents: S) -> Self {
+    /// Read either the contents of a file path or if a string is passed in,
+    /// use that as the file contents.
+    pub fn new<S: AsRef<Path> + Display>(path: S) -> Self {
+        let contents = match path.as_ref().exists() {
+            false => path.to_string(),
+            true => read_to_string(path).expect("Failed to open file {path}"),
         Self {
-            contents: contents.as_ref().into(),
+            contents
         }
     }
 
