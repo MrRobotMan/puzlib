@@ -1,6 +1,9 @@
 pub mod combinatorics;
 pub use combinatorics::*;
 
+pub mod graphs;
+pub use graphs::*;
+
 pub mod measure;
 pub use measure::*;
 
