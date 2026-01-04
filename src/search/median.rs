@@ -8,10 +8,14 @@ pub trait Median<T: Ord> {
         Self: Deref<Target = [T]>,
     {
         let midpoint = self.len() / 2;
-        match self.len() {
-            x if x <= 2 => self.deref(), // For empty, lenth 1, and length 2 mid is the slice.
-            x if x % 2 == 1 => &self[midpoint..midpoint + 1], // For odd length the midpoint is the middle.
-            _ => &self[midpoint - 1..midpoint + 1], // For even length the midpoint is between two elements.
+        let len = self.len();
+        if len <= 2 {
+            return self.deref();
+        }
+        if len % 2 == 1 {
+            &self[midpoint..midpoint + 1]
+        } else {
+            &self[midpoint - 1..midpoint + 1]
         }
     }
 }
