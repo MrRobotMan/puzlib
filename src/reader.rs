@@ -17,9 +17,8 @@ impl FileReader {
         let contents = match path.as_ref().exists() {
             false => path.to_string(),
             true => read_to_string(path).expect("Failed to open file {path}"),
-        Self {
-            contents
-        }
+        };
+        Self { contents }
     }
 
     /// Raw file contents.
